@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, UseGuards, Request, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Param, Body, UseGuards, Request, ParseUUIDPipe } from '@nestjs/common';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { Scopes } from '../auth/decorators/scopes.decorator';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { ReplayWebhooksDto } from './dto/replay-webhooks.dto';
+import { UpdateWebhookRetryConfigDto } from './dto/update-webhook-retry-config.dto';
 
 @ApiTags('webhooks')
 @ApiBearerAuth('bearer')
@@ -61,6 +62,20 @@ export class WebhooksController {
   @ApiResponse({ status: 500, description: 'Internal server error' })
   replay(@Request() req: { user: { merchantId: string } }, @Body() dto: ReplayWebhooksDto) {
     return this.webhooksService.replay(req.user.merchantId, dto);
+  }
+
+  @Get('retry-config')
+  @Scopes('webhooks:manage')
+  @ApiOperation({ summary: 'Get merchant webhook retry configuration' })
+  getRetryConfig(@Request() req: { user: { merchantId: string } }) {
+    return this.webhooksService.getRetryConfig(req.user.merchantId);
+  }
+
+  @Patch('retry-config')
+  @Scopes('webhooks:manage')
+  @ApiOperation({ summary: 'Update merchant webhook retry configuration' })
+  updateRetryConfig(@Request() req: { user: { merchantId: string } }, @Body() dto: UpdateWebhookRetryConfigDto) {
+    return this.webhooksService.updateRetryConfig(req.user.merchantId, dto);
   }
 
   @Delete(':id')

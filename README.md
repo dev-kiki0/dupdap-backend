@@ -229,6 +229,7 @@ WEBHOOK_RETRY_DELAYS_MS=60000,300000,1800000,7200000,43200000
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=
+CACHE_VERSION=v1                    # Optional release identifier (for example, the deployed git SHA)
 
 QUEUE_MAX_RETRIES=5
 SETTLEMENT_RETRY_COUNT=3
@@ -301,7 +302,7 @@ BACKUP_RETENTION_DAYS=30
 | Payments (QR/receipts) | `POST /payments`, `GET /payments/:id/status`, `GET /payments/:id/qr-code`, `POST /payments/:id/cancel`, `GET /payments/reference/:reference`, `GET /payments/:id/receipt` |
 | Settlements | `GET /settlements`, `POST /settlements/partner-callback` (partner-facing) |
 | Merchants | `GET /merchants/me`, `PATCH /merchants/me`, `POST /merchants/api-keys`, `GET`/`PATCH /merchants/me/notification-prefs` |
-| Webhooks | `GET /webhooks`, `POST /webhooks`, `DELETE /webhooks/:id` |
+| Webhooks | `GET /webhooks`, `POST /webhooks`, `DELETE /webhooks/:id`, `GET`/`PATCH /webhooks/retry-config` |
 | Wallet | `GET /wallet`, `GET /wallet/balance` |
 | Waitlist | `POST /waitlist/join`, `GET /waitlist/check/:username`, `GET /waitlist/stats` |
 | Health | `GET /health`, `GET /health/ready` (excluded from the `/api/v1` prefix) |
@@ -310,7 +311,7 @@ Treat Swagger (`/docs`) as the source of truth for request/response shapes — t
 
 ### Outbound webhooks
 
-Merchants register a URL via `POST /webhooks`; deliveries are HMAC-signed with `WEBHOOK_SECRET` and retried on the schedule in `WEBHOOK_RETRY_DELAYS_MS`. Events currently dispatched:
+Merchants register a URL via `POST /webhooks`; deliveries are HMAC-signed with `WEBHOOK_SECRET` and retried on the schedule in `WEBHOOK_RETRY_DELAYS_MS`. Merchants can set `maxAttempts` and `retryDelays` (milliseconds) with `PATCH /webhooks/retry-config`; unset policies use the global schedule. Attempts are limited to 10 and each delay to 24 hours. Events currently dispatched:
 
 - `payment.confirmed` — deposit detected and confirmed on Stellar
 - `payment.expired` — payment request expired before a deposit arrived
@@ -318,6 +319,10 @@ Merchants register a URL via `POST /webhooks`; deliveries are HMAC-signed with `
 - `payment.settled` — merchant has received fiat
 - `payment.failed` — settlement failed
 - `payment.refunded` — a payment was refunded
+
+### Cache versioning
+
+All `CacheService` keys include `NODE_ENV` and `CACHE_VERSION` (`v1` when unset). Set `CACHE_VERSION` to the deployed commit SHA or another immutable release identifier. Changing it immediately makes previous-version keys unreachable; old entries expire under their existing TTLs. Keep the same version across instances in one deployment.
 
 ## Testing
 

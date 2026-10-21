@@ -15,6 +15,7 @@ import { StellarModule } from '../stellar/stellar.module';
 import { SettlementsSorobanListener } from './settlements-soroban.listener';
 import { AdminSettlementsController } from './admin-settlements.controller';
 import { RetryModule } from '../retry/retry.module';
+import { PrometheusModule } from '../prometheus/prometheus.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { RetryModule } from '../retry/retry.module';
     forwardRef(() => StellarModule),
     QueueModule,
     RetryModule,
+    PrometheusModule,
   ],
   controllers: [SettlementsController, PartnerCallbackController, AdminSettlementsController],
   providers: [SettlementsService, PartnerSignatureGuard, SettlementsSorobanListener],

@@ -9,6 +9,8 @@ import { WebhookDeliveryLog } from './entities/webhook-delivery-log.entity';
 import { WebhookDeliveryService } from './webhook-delivery.service';
 import { CacheService } from '../cache/cache.service';
 import { ReplayWebhooksDto } from './dto/replay-webhooks.dto';
+import { Merchant } from '../merchants/entities/merchant.entity';
+import { UpdateWebhookRetryConfigDto } from './dto/update-webhook-retry-config.dto';
 
 @Injectable()
 export class WebhooksService {
@@ -23,7 +25,26 @@ export class WebhooksService {
     private deliveryLogs?: Repository<WebhookDeliveryLog>,
     @Optional()
     private cache?: CacheService,
+    @Optional()
+    @InjectRepository(Merchant)
+    private merchantsRepo?: Repository<Merchant>,
   ) {}
+
+  async updateRetryConfig(merchantId: string, config: UpdateWebhookRetryConfigDto) {
+    if (!this.merchantsRepo) throw new Error('Merchant repository is unavailable');
+    const merchant = await this.merchantsRepo.findOne({ where: { id: merchantId } });
+    if (!merchant) throw new NotFoundException('Merchant not found');
+    merchant.webhookRetryConfig = config;
+    await this.merchantsRepo.save(merchant);
+    return merchant.webhookRetryConfig;
+  }
+
+  async getRetryConfig(merchantId: string) {
+    if (!this.merchantsRepo) throw new Error('Merchant repository is unavailable');
+    const merchant = await this.merchantsRepo.findOne({ where: { id: merchantId } });
+    if (!merchant) throw new NotFoundException('Merchant not found');
+    return merchant.webhookRetryConfig;
+  }
 
   async dispatch(merchantId: string, event: string, payload: Record<string, any>): Promise<void> {
     const webhooks = await this.webhooksRepo.find({

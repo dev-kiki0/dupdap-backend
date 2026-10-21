@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Inject, forwardRef, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -23,6 +23,7 @@ import { StellarService } from '../stellar/stellar.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { CronJobService } from '../cron/cron-job.service';
 import { RetryConfigService } from '../retry/retry-config.service';
+import { MetricsService } from '../prometheus/metrics.service';
 
 export interface PartnerCallbackPayload {
   reference: string;
@@ -83,7 +84,17 @@ export class SettlementsService {
     private settlementQueue: Queue,
     private cronJobService: CronJobService,
     private retryConfig: RetryConfigService,
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
+
+  private recordSettlementDuration(settlement: Settlement): void {
+    if (!settlement.createdAt) return;
+    const end = settlement.completedAt ?? new Date();
+    this.metrics?.observeSettlementDuration(
+      settlement.status,
+      Math.max(0, (end.getTime() - settlement.createdAt.getTime()) / 1000),
+    );
+  }
 
   private invalidateAnalyticsForMerchant(merchantId: string): void {
     this.analytics.clearCacheForMerchant(merchantId);
@@ -403,6 +414,7 @@ export class SettlementsService {
       settlement.status = SettlementStatus.COMPLETED;
       settlement.completedAt = new Date();
       await this.settlementsRepo.save(settlement);
+      this.recordSettlementDuration(settlement);
       this.invalidateAnalyticsForMerchant(settlement.merchantId);
       await this.webhooks.dispatch(settlement.merchantId, 'settlement.completed', {
         settlementId: settlement.id,
@@ -412,6 +424,7 @@ export class SettlementsService {
       settlement.status = SettlementStatus.FAILED;
       settlement.failureReason = (error as Error).message;
       await this.settlementsRepo.save(settlement);
+      this.recordSettlementDuration(settlement);
       this.invalidateAnalyticsForMerchant(settlement.merchantId);
       await this.adminAlerts.raise({
         type: AdminAlertType.SETTLEMENT_FAILURE,
@@ -557,6 +570,7 @@ export class SettlementsService {
       return;
     }
 
+    const wasTerminal = settlement.status === SettlementStatus.COMPLETED || settlement.status === SettlementStatus.FAILED;
     if (payload.status === 'success') {
       settlement.status = SettlementStatus.COMPLETED;
       settlement.completedAt = new Date();
@@ -566,6 +580,7 @@ export class SettlementsService {
     }
 
     await this.settlementsRepo.save(settlement);
+    if (!wasTerminal) this.recordSettlementDuration(settlement);
     this.invalidateAnalyticsForMerchant(settlement.merchantId);
 
     await this.webhooks.dispatch(settlement.merchantId, `settlement.${payload.status}`, {

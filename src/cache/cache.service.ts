@@ -57,7 +57,8 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
   constructor(@Optional() private readonly metrics?: MetricsService, redis?: Redis, subscriber?: Redis) {
     const env = process.env.NODE_ENV ?? 'development';
-    this.ns = `${env}:cache:`;
+    const version = process.env.CACHE_VERSION?.trim() || 'v1';
+    this.ns = `${env}:cache:${version}:`;
     this.redis = redis ?? buildRedisClient();
     this.subscriber = subscriber ?? buildRedisClient();
   }

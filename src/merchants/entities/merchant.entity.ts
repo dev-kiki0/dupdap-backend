@@ -151,6 +151,10 @@ export class Merchant {
   @Column({ name: 'payment_retry_delay_ms', type: 'int', default: 300000 })
   paymentRetryDelayMs: number;
 
+  /** Merchant-specific webhook delivery retry policy; null uses global defaults. */
+  @Column({ name: 'webhook_retry_config', type: 'jsonb', nullable: true, default: null })
+  webhookRetryConfig: { maxAttempts: number; retryDelays: number[] } | null;
+
   @Column({ default: false })
   sandboxMode: boolean;
 
